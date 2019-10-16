@@ -55,7 +55,18 @@ class StreamingTopology {
     }
 
     fun computeRunningTotal(kStream: KStream<String, Transaction>?): KStream<Windowed<String>, Long>? {
-      return null
+      val windowSizeMs = TimeUnit.SECONDS.toMillis(30)
+      val weeklySpendWindow = TimeWindows.of(windowSizeMs)
+      return kStream?.groupByKey()
+          ?.windowedBy(weeklySpendWindow)
+          ?.aggregate(
+              { 0L },
+              { _, value, aggregate ->
+                aggregate + value.amount
+              },
+              Materialized.with(Serdes.StringSerde(), Serdes.LongSerde())
+          )
+          ?.toStream()
     }
 
     fun createCategoryLookupTable(builder: StreamsBuilder): GlobalKTable<String, String>? {
@@ -76,6 +87,8 @@ class StreamingTopology {
           createCategoryLookupTable(builder))
 
       totalStream?.to("customer-total-topic", stringLongProduced)
+      windowedLongKStream?.selectKey { key, _ -> key.toString() }
+          ?.to("customer-rolling-total-topic", stringLongProduced)
     }
 
     @JvmStatic
