@@ -69,13 +69,22 @@ class StreamingTopology {
           ?.toStream()
     }
 
-    fun createCategoryLookupTable(builder: StreamsBuilder): GlobalKTable<String, String>? {
-      return null
+    fun createCategoryLookupTable(builder: StreamsBuilder): GlobalKTable<String, String> {
+      return builder.globalTable("category-topic",
+          Consumed.with(Serdes.StringSerde(), Serdes.StringSerde()),
+          Materialized.`as`("category-lookup-store"))
     }
 
-    fun categorisedStream(kStream: KStream<String, Transaction>, kTable: GlobalKTable<String, String>?)
-        : KStream<String, Transaction>? {
-      return null
+    fun categorisedStream(kStream: KStream<String, Transaction>, kTable: GlobalKTable<String, String>)
+        : KStream<String, Transaction> {
+      return kStream.leftJoin<String, String, Transaction>(kTable,
+          KeyValueMapper { _: String, transaction: Transaction ->
+            transaction.category
+          },
+          ValueJoiner { transaction: Transaction, category: String ->
+            transaction.category = category
+            transaction
+          })
     }
 
     fun topology(builder: StreamsBuilder) {
@@ -89,6 +98,10 @@ class StreamingTopology {
       totalStream?.to("customer-total-topic", stringLongProduced)
       windowedLongKStream?.selectKey { key, _ -> key.toString() }
           ?.to("customer-rolling-total-topic", stringLongProduced)
+      enhancedTransactions
+          .peek { _, value -> logger.info(value.toString()) }
+          .to("enhanced-transactions-topic",
+              Produced.with<String, Transaction>(Serdes.StringSerde(), TransactionSerde()))
     }
 
     @JvmStatic
