@@ -38,11 +38,20 @@ class StreamingTopology {
     }
 
     fun createStream(builder: StreamsBuilder): KStream<String, Transaction>? {
-      return null
+      return builder.stream("transaction-topic", Consumed.with(Serdes.StringSerde(), TransactionSerde())
+          .withTimestampExtractor(MessageTimeExtractor()))
     }
 
     fun computeTotals(kStream: KStream<String, Transaction>?): KStream<String, Long>? {
-      return null
+      return kStream?.groupByKey()
+          ?.aggregate(
+              { 0L },
+              { _, value, aggregate ->
+                aggregate + value.amount
+              },
+              Materialized.with(Serdes.StringSerde(), Serdes.LongSerde())
+          )
+          ?.toStream()
     }
 
     fun computeRunningTotal(kStream: KStream<String, Transaction>?): KStream<Windowed<String>, Long>? {
@@ -65,20 +74,23 @@ class StreamingTopology {
       val windowedLongKStream = computeRunningTotal(stream)
       val enhancedTransactions = categorisedStream(stream!!,
           createCategoryLookupTable(builder))
+
+      totalStream?.to("customer-total-topic", stringLongProduced)
     }
-  }
 
-  fun main(args: Array<String>) {
-    val builder = StreamsBuilder()
-    topology(builder)
+    @JvmStatic
+    fun main(args: Array<String>) {
+      val builder = StreamsBuilder()
+      topology(builder)
 
-    // Start and start streaming
-    val topology: Topology = builder.build()
-    logger.info(topology.describe().toString())
-    val streams = KafkaStreams(topology, config())
-    streams.cleanUp() // only do this in dev - not in prod
-    streams.start()
-    // shutdown hook to correctly close the streams application
-    Runtime.getRuntime().addShutdownHook(Thread(streams::close))
+      // Start and start streaming
+      val topology: Topology = builder.build()
+      logger.info(topology.describe().toString())
+      val streams = KafkaStreams(topology, config())
+      streams.cleanUp() // only do this in dev - not in prod
+      streams.start()
+      // shutdown hook to correctly close the streams application
+      Runtime.getRuntime().addShutdownHook(Thread(streams::close))
+    }
   }
 }
