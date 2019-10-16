@@ -17,3 +17,20 @@
             --config segment.ms=100
 ./bin/kafka-topics.sh --bootstrap-server broker:29092 --list
 
+# View the raw transactions
+ ./bin/kafka-console-consumer.sh --bootstrap-server broker:29092 \
+             --topic transaction-topic \
+             --from-beginning \
+             --formatter kafka.tools.DefaultMessageFormatter \
+             --property print.key=true \
+             --property print.value=true \
+
+# Consume total topic in console
+ ./bin/kafka-console-consumer.sh --bootstrap-server broker:29092 \
+             --topic customer-total-topic \
+             --from-beginning \
+             --formatter kafka.tools.DefaultMessageFormatter \
+             --property print.key=true \
+             --property print.value=true \
+             --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer \
+             --property value.deserializer=org.apache.kafka.common.serialization.LongDeserializer
