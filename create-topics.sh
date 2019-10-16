@@ -36,7 +36,7 @@
              --property value.deserializer=org.apache.kafka.common.serialization.LongDeserializer
 
 # Consume rolling total topic in console
-./bin/kafka-console-consumer.sh --bootstrap-server kafka-1:19092 \
+./bin/kafka-console-consumer.sh --bootstrap-server broker:29092 \
              --topic customer-rolling-total-topic \
              --from-beginning \
              --formatter kafka.tools.DefaultMessageFormatter \
